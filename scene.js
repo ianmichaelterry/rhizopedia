@@ -135,7 +135,14 @@ export class SceneManager {
     });
     
     textGeometry.computeBoundingBox();
-    const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+    
+    // Center the geometry properly
+    const bbox = textGeometry.boundingBox;
+    const centerOffsetX = -0.5 * (bbox.max.x + bbox.min.x);
+    const centerOffsetY = -0.5 * (bbox.max.y + bbox.min.y);
+    const centerOffsetZ = -0.5 * (bbox.max.z + bbox.min.z);
+    
+    textGeometry.translate(centerOffsetX, centerOffsetY, centerOffsetZ);
     
     const material = new THREE.MeshPhongMaterial({
       color: color,
@@ -143,7 +150,6 @@ export class SceneManager {
     });
     
     const textMesh = new THREE.Mesh(textGeometry, material);
-    textMesh.position.x = centerOffset;
     
     return textMesh;
   }
@@ -174,6 +180,30 @@ export class SceneManager {
       mainText.position.set(0, 0, 5);
       this.scene.add(mainText);
       this.textMeshes.push(mainText);
+      
+      // Calculate the bounding box to center camera on the title
+      mainText.geometry.computeBoundingBox();
+      const bbox = mainText.geometry.boundingBox;
+      const titleWidth = bbox.max.x - bbox.min.x;
+      const titleHeight = bbox.max.y - bbox.min.y;
+      
+      // Calculate optimal camera distance to fit the title with generous padding
+      const fov = this.camera.fov * (Math.PI / 180);
+      const aspect = this.camera.aspect;
+      
+      // Add more padding - 2x the size to ensure it's never cut off
+      const paddingMultiplier = 2.2;
+      const distanceForHeight = (titleHeight * paddingMultiplier) / (2 * Math.tan(fov / 2));
+      const distanceForWidth = (titleWidth * paddingMultiplier) / (2 * Math.tan(fov / 2) * aspect);
+      const optimalDistance = Math.max(distanceForHeight, distanceForWidth, 20);
+      
+      // Position camera to center on the main title
+      this.camera.position.set(0, 0, mainText.position.z + optimalDistance);
+      this.camera.lookAt(0, 0, mainText.position.z);
+      
+      // Update controls target to the main title
+      this.controls.target.set(0, 0, mainText.position.z);
+      this.controls.update();
     }
     
     // Create linked articles
