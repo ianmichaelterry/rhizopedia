@@ -17,6 +17,16 @@ export class SceneManager {
     this.textMeshes = [];
     this.lineParticles = []; // Array to store animated particles on lines
     
+    // Keyboard controls state
+    this.keys = {
+      w: false, s: false, a: false, d: false,
+      space: false, shift: false,
+      arrowUp: false, arrowDown: false,
+      arrowLeft: false, arrowRight: false
+    };
+    this.moveSpeed = 0.5;
+    this.rotateSpeed = 0.02;
+    
     this.init();
   }
   
@@ -59,6 +69,9 @@ export class SceneManager {
     // Add starfield background
     this.addStarfield();
     
+    // Setup keyboard controls
+    this.setupKeyboardControls();
+    
     // Handle window resize
     window.addEventListener('resize', () => this.onWindowResize());
     
@@ -89,6 +102,113 @@ export class SceneManager {
     
     const stars = new THREE.Points(starGeometry, starMaterial);
     this.scene.add(stars);
+  }
+  
+  /**
+   * Setup keyboard controls
+   */
+  setupKeyboardControls() {
+    window.addEventListener('keydown', (e) => {
+      switch(e.key.toLowerCase()) {
+        case 'w': this.keys.w = true; break;
+        case 's': this.keys.s = true; break;
+        case 'a': this.keys.a = true; break;
+        case 'd': this.keys.d = true; break;
+        case ' ': this.keys.space = true; e.preventDefault(); break;
+        case 'shift': this.keys.shift = true; break;
+        case 'arrowup': this.keys.arrowUp = true; e.preventDefault(); break;
+        case 'arrowdown': this.keys.arrowDown = true; e.preventDefault(); break;
+        case 'arrowleft': this.keys.arrowLeft = true; e.preventDefault(); break;
+        case 'arrowright': this.keys.arrowRight = true; e.preventDefault(); break;
+      }
+    });
+    
+    window.addEventListener('keyup', (e) => {
+      switch(e.key.toLowerCase()) {
+        case 'w': this.keys.w = false; break;
+        case 's': this.keys.s = false; break;
+        case 'a': this.keys.a = false; break;
+        case 'd': this.keys.d = false; break;
+        case ' ': this.keys.space = false; break;
+        case 'shift': this.keys.shift = false; break;
+        case 'arrowup': this.keys.arrowUp = false; break;
+        case 'arrowdown': this.keys.arrowDown = false; break;
+        case 'arrowleft': this.keys.arrowLeft = false; break;
+        case 'arrowright': this.keys.arrowRight = false; break;
+      }
+    });
+  }
+  
+  /**
+   * Update camera position based on keyboard input
+   */
+  updateCameraMovement() {
+    // Get camera direction vectors
+    const direction = new THREE.Vector3();
+    this.camera.getWorldDirection(direction);
+    
+    const right = new THREE.Vector3();
+    right.crossVectors(this.camera.up, direction).normalize();
+    
+    const forward = direction.clone();
+    forward.y = 0; // Keep forward movement on horizontal plane
+    forward.normalize();
+    
+    const rightFlat = right.clone();
+    rightFlat.y = 0; // Keep right movement on horizontal plane
+    rightFlat.normalize();
+    
+    // Movement (WASD + Space/Shift)
+    if (this.keys.w) {
+      this.camera.position.addScaledVector(forward, -this.moveSpeed);
+      this.controls.target.addScaledVector(forward, -this.moveSpeed);
+    }
+    if (this.keys.s) {
+      this.camera.position.addScaledVector(forward, this.moveSpeed);
+      this.controls.target.addScaledVector(forward, this.moveSpeed);
+    }
+    if (this.keys.a) {
+      this.camera.position.addScaledVector(rightFlat, this.moveSpeed);
+      this.controls.target.addScaledVector(rightFlat, this.moveSpeed);
+    }
+    if (this.keys.d) {
+      this.camera.position.addScaledVector(rightFlat, -this.moveSpeed);
+      this.controls.target.addScaledVector(rightFlat, -this.moveSpeed);
+    }
+    if (this.keys.space) {
+      this.camera.position.y += this.moveSpeed;
+      this.controls.target.y += this.moveSpeed;
+    }
+    if (this.keys.shift) {
+      this.camera.position.y -= this.moveSpeed;
+      this.controls.target.y -= this.moveSpeed;
+    }
+    
+    // Rotation (Arrow keys)
+    if (this.keys.arrowLeft) {
+      const axis = new THREE.Vector3(0, 1, 0);
+      const rotatedPosition = this.camera.position.clone().sub(this.controls.target);
+      rotatedPosition.applyAxisAngle(axis, this.rotateSpeed);
+      this.camera.position.copy(this.controls.target.clone().add(rotatedPosition));
+    }
+    if (this.keys.arrowRight) {
+      const axis = new THREE.Vector3(0, 1, 0);
+      const rotatedPosition = this.camera.position.clone().sub(this.controls.target);
+      rotatedPosition.applyAxisAngle(axis, -this.rotateSpeed);
+      this.camera.position.copy(this.controls.target.clone().add(rotatedPosition));
+    }
+    if (this.keys.arrowUp) {
+      const axis = right;
+      const rotatedPosition = this.camera.position.clone().sub(this.controls.target);
+      rotatedPosition.applyAxisAngle(axis, this.rotateSpeed);
+      this.camera.position.copy(this.controls.target.clone().add(rotatedPosition));
+    }
+    if (this.keys.arrowDown) {
+      const axis = right;
+      const rotatedPosition = this.camera.position.clone().sub(this.controls.target);
+      rotatedPosition.applyAxisAngle(axis, -this.rotateSpeed);
+      this.camera.position.copy(this.controls.target.clone().add(rotatedPosition));
+    }
   }
   
   /**
@@ -463,6 +583,9 @@ export class SceneManager {
    */
   animate() {
     requestAnimationFrame(() => this.animate());
+    
+    // Update camera movement from keyboard
+    this.updateCameraMovement();
     
     // Update animated particles
     this.updateLineParticles();

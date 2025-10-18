@@ -10,6 +10,59 @@
     <div id="app">
       <div id="loading">Loading Wikipedia article...</div>
       <button id="newArticle">Load New Article</button>
+      <button id="helpButton">Controls</button>
+      
+      <!-- Help Modal -->
+      <div id="helpModal" class="modal hidden">
+        <div class="modal-content">
+          <span class="close">&times;</span>
+          <h2>Controls</h2>
+          <div class="controls-grid">
+            <div class="control-section">
+              <h3>Movement</h3>
+              <div class="control-item">
+                <kbd>W</kbd> <span>Move Forward</span>
+              </div>
+              <div class="control-item">
+                <kbd>S</kbd> <span>Move Backward</span>
+              </div>
+              <div class="control-item">
+                <kbd>A</kbd> <span>Move Left</span>
+              </div>
+              <div class="control-item">
+                <kbd>D</kbd> <span>Move Right</span>
+              </div>
+              <div class="control-item">
+                <kbd>Space</kbd> <span>Move Up</span>
+              </div>
+              <div class="control-item">
+                <kbd>Shift</kbd> <span>Move Down</span>
+              </div>
+            </div>
+            <div class="control-section">
+              <h3>Camera</h3>
+              <div class="control-item">
+                <kbd>↑</kbd> <span>Look Up</span>
+              </div>
+              <div class="control-item">
+                <kbd>↓</kbd> <span>Look Down</span>
+              </div>
+              <div class="control-item">
+                <kbd>←</kbd> <span>Look Left</span>
+              </div>
+              <div class="control-item">
+                <kbd>→</kbd> <span>Look Right</span>
+              </div>
+              <div class="control-item">
+                <kbd>Mouse Drag</kbd> <span>Rotate View</span>
+              </div>
+              <div class="control-item">
+                <kbd>Scroll</kbd> <span>Zoom In/Out</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <script type="module" src="/main.js"></script>
   </body>

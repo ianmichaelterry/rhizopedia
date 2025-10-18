@@ -6,6 +6,8 @@ import { calculateCircularLayout, calculateAngledLayout } from './layout.js';
 let sceneManager;
 let loadingElement;
 let newArticleButton;
+let helpButton;
+let helpModal;
 
 /**
  * Initialize the application
@@ -13,6 +15,8 @@ let newArticleButton;
 async function init() {
   loadingElement = document.getElementById('loading');
   newArticleButton = document.getElementById('newArticle');
+  helpButton = document.getElementById('helpButton');
+  helpModal = document.getElementById('helpModal');
   
   // Create scene
   const appContainer = document.getElementById('app');
@@ -31,8 +35,27 @@ async function init() {
   // Load initial article
   await loadNewArticle();
   
-  // Setup button
+  // Setup buttons
   newArticleButton.addEventListener('click', loadNewArticle);
+  helpButton.addEventListener('click', showHelp);
+  
+  // Setup modal close
+  const closeButton = helpModal.querySelector('.close');
+  closeButton.addEventListener('click', hideHelp);
+  
+  // Close modal when clicking outside
+  helpModal.addEventListener('click', (e) => {
+    if (e.target === helpModal) {
+      hideHelp();
+    }
+  });
+  
+  // Close modal with Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !helpModal.classList.contains('hidden')) {
+      hideHelp();
+    }
+  });
 }
 
 /**
@@ -166,6 +189,24 @@ function hideLoading() {
     setTimeout(() => {
       loadingElement.classList.add('hidden');
     }, 500);
+  }
+}
+
+/**
+ * Show help modal
+ */
+function showHelp() {
+  if (helpModal) {
+    helpModal.classList.remove('hidden');
+  }
+}
+
+/**
+ * Hide help modal
+ */
+function hideHelp() {
+  if (helpModal) {
+    helpModal.classList.add('hidden');
   }
 }
 
