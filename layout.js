@@ -31,15 +31,15 @@ function boxesOverlap(box1, box2) {
  * with dynamic spacing to prevent overlaps
  * @param {Array<string>} titles - Array of article titles to position
  * @param {number} baseRadius - Starting radius from center
+ * @param {number} zDepth - Z position (negative = in front, positive = behind)
  * @returns {Array<Object>} Array of positions {x, y, z, title, width}
  */
-export function calculateCircularLayout(titles, baseRadius = 12) {
+export function calculateCircularLayout(titles, baseRadius = 12, zDepth = -20) {
   const positions = [];
   const count = titles.length;
   
   if (count === 0) return positions;
   
-  const z = -20; // Fixed depth (all on same vertical plane)
   const textHeight = 1.2; // Approximate height of text
   
   // Calculate initial angles evenly distributed
@@ -110,7 +110,7 @@ export function calculateCircularLayout(titles, baseRadius = 12) {
     positions.push({
       x: x,
       y: y,
-      z: z,
+      z: zDepth,
       title: pos.title,
       width: pos.width
     });

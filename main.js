@@ -51,17 +51,21 @@ async function loadNewArticle() {
     
     showLoading(`Loading: ${articleData.mainTitle}`);
     
-    // Calculate positions for linked articles
-    const linkedPositions = calculateCircularLayout(articleData.linkedTitles);
+    // Calculate positions for linked articles (in front, negative z)
+    const linkedPositions = calculateCircularLayout(articleData.linkedTitles, 12, -20);
+    
+    // Calculate positions for backlinks (behind, positive z)
+    const backlinkPositions = calculateCircularLayout(articleData.backlinks, 12, 30);
     
     // Render in 3D
-    sceneManager.renderArticle(articleData.mainTitle, linkedPositions);
+    sceneManager.renderArticle(articleData.mainTitle, linkedPositions, backlinkPositions);
     
     // Hide loading
     hideLoading();
     
     console.log('Article loaded:', articleData.mainTitle);
     console.log('Linked articles:', articleData.linkedTitles.length);
+    console.log('Backlinks:', articleData.backlinks.length);
   } catch (error) {
     console.error('Error loading article:', error);
     showLoading('Error loading article. Click button to try again.');

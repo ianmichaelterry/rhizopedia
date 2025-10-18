@@ -15,6 +15,7 @@ export class SceneManager {
     this.controls = null;
     this.font = null;
     this.textMeshes = [];
+    this.lineParticles = []; // Array to store animated particles on lines
     
     this.init();
   }
@@ -97,14 +98,27 @@ export class SceneManager {
   async loadFont() {
     return new Promise((resolve, reject) => {
       const loader = new FontLoader();
+      // Use Droid Sans which has better Unicode support for international characters
       loader.load(
-        'https://threejs.org/examples/fonts/helvetiker_regular.typeface.json',
+        'https://threejs.org/examples/fonts/droid/droid_sans_regular.typeface.json',
         (font) => {
           this.font = font;
           resolve();
         },
         undefined,
-        (error) => reject(error)
+        (error) => {
+          // Fallback to helvetiker if droid sans fails
+          console.warn('Droid Sans font failed, falling back to Helvetiker');
+          loader.load(
+            'https://threejs.org/examples/fonts/helvetiker_regular.typeface.json',
+            (font) => {
+              this.font = font;
+              resolve();
+            },
+            undefined,
+            (error) => reject(error)
+          );
+        }
       );
     });
   }
@@ -155,23 +169,119 @@ export class SceneManager {
   }
   
   /**
-   * Clear all text meshes from scene
+   * Clear all text meshes and particles from scene
    */
   clearText() {
     this.textMeshes.forEach(mesh => {
       this.scene.remove(mesh);
-      mesh.geometry.dispose();
-      mesh.material.dispose();
+      if (mesh.geometry) mesh.geometry.dispose();
+      if (mesh.material) mesh.material.dispose();
     });
     this.textMeshes = [];
+    
+    // Clear line particles
+    this.lineParticles.forEach(particle => {
+      this.scene.remove(particle.mesh);
+      particle.mesh.geometry.dispose();
+      particle.mesh.material.dispose();
+    });
+    this.lineParticles = [];
+  }
+  
+  /**
+   * Create an animated particle that travels along a line
+   * @param {THREE.Vector3} start - Start position
+   * @param {THREE.Vector3} end - End position
+   * @param {number} color - Particle color
+   * @param {boolean} reverse - Travel direction (false = start to end, true = end to start)
+   */
+  createLineParticle(start, end, color, reverse = false) {
+    // Much smaller particle size
+    const geometry = new THREE.SphereGeometry(0.05, 6, 6);
+    // White/cyan energy glow
+    const material = new THREE.MeshBasicMaterial({ 
+      color: 0xaaffff, // Bright cyan-white
+      transparent: true,
+      opacity: 1.0
+    });
+    const particle = new THREE.Mesh(geometry, material);
+    
+    // Much longer random delay before starting animation (5-20 seconds)
+    const delay = 5000 + Math.random() * 15000;
+    // Faster speed (1-2 seconds to complete journey)
+    const duration = 1000 + Math.random() * 1000;
+    
+    const particleData = {
+      mesh: particle,
+      start: start.clone(),
+      end: end.clone(),
+      progress: 0,
+      delay: delay,
+      duration: duration,
+      startTime: Date.now() + delay,
+      reverse: reverse,
+      active: false
+    };
+    
+    particle.position.copy(reverse ? end : start);
+    this.scene.add(particle);
+    this.lineParticles.push(particleData);
+    
+    return particle;
+  }
+  
+  /**
+   * Update all line particles animation
+   */
+  updateLineParticles() {
+    const now = Date.now();
+    
+    this.lineParticles.forEach(particle => {
+      // Check if particle should start
+      if (!particle.active && now >= particle.startTime) {
+        particle.active = true;
+        particle.startTime = now;
+      }
+      
+      if (particle.active) {
+        const elapsed = now - particle.startTime;
+        particle.progress = Math.min(elapsed / particle.duration, 1);
+        
+        // Interpolate position along the line
+        const actualProgress = particle.reverse ? 1 - particle.progress : particle.progress;
+        particle.mesh.position.lerpVectors(
+          particle.start,
+          particle.end,
+          actualProgress
+        );
+        
+        // Fade in at start, fade out at end
+        const fadeDistance = 0.15;
+        if (particle.progress < fadeDistance) {
+          particle.mesh.material.opacity = 1.0 * (particle.progress / fadeDistance);
+        } else if (particle.progress > 1 - fadeDistance) {
+          particle.mesh.material.opacity = 1.0 * ((1 - particle.progress) / fadeDistance);
+        } else {
+          particle.mesh.material.opacity = 1.0;
+        }
+        
+        // Reset when complete with much longer delay
+        if (particle.progress >= 1) {
+          particle.progress = 0;
+          particle.active = false;
+          particle.startTime = now + 10000 + Math.random() * 20000; // 10-30 second delay before next loop
+        }
+      }
+    });
   }
   
   /**
    * Render article data as 3D text
    * @param {string} mainTitle - Main article title
-   * @param {Array<Object>} linkedPositions - Array of {x, y, z, title}
+   * @param {Array<Object>} linkedPositions - Array of {x, y, z, title} for links FROM this article
+   * @param {Array<Object>} backlinkPositions - Array of {x, y, z, title} for links TO this article
    */
-  renderArticle(mainTitle, linkedPositions) {
+  renderArticle(mainTitle, linkedPositions, backlinkPositions = []) {
     this.clearText();
     
     // Create main title (larger, centered in front of the wall)
@@ -206,7 +316,7 @@ export class SceneManager {
       this.controls.update();
     }
     
-    // Create linked articles
+    // Create linked articles (in front - blue)
     linkedPositions.forEach(pos => {
       const linkedText = this.createTextMesh(pos.title, 0.7, 0x00aaff);
       if (linkedText) {
@@ -215,19 +325,52 @@ export class SceneManager {
         this.textMeshes.push(linkedText);
         
         // Add line connecting to center
-        const points = [];
-        points.push(new THREE.Vector3(0, 0, 5));
-        points.push(new THREE.Vector3(pos.x, pos.y, pos.z));
+        const centerPoint = new THREE.Vector3(0, 0, 5);
+        const targetPoint = new THREE.Vector3(pos.x, pos.y, pos.z);
+        const points = [centerPoint, targetPoint];
         
         const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
         const lineMaterial = new THREE.LineBasicMaterial({ 
-          color: 0x444444,
+          color: 0x00aaff,
           opacity: 0.2,
           transparent: true
         });
         const line = new THREE.Line(lineGeometry, lineMaterial);
         this.scene.add(line);
         this.textMeshes.push(line);
+        
+        // Create animated particles traveling in both directions
+        this.createLineParticle(centerPoint, targetPoint, 0x00aaff, false); // Center to link
+        this.createLineParticle(centerPoint, targetPoint, 0x00aaff, true);  // Link to center
+      }
+    });
+    
+    // Create backlinks (behind - green)
+    backlinkPositions.forEach(pos => {
+      const backlinkText = this.createTextMesh(pos.title, 0.7, 0x00ff88);
+      if (backlinkText) {
+        backlinkText.position.set(pos.x, pos.y, pos.z);
+        this.scene.add(backlinkText);
+        this.textMeshes.push(backlinkText);
+        
+        // Add line connecting to center
+        const centerPoint = new THREE.Vector3(0, 0, 5);
+        const targetPoint = new THREE.Vector3(pos.x, pos.y, pos.z);
+        const points = [centerPoint, targetPoint];
+        
+        const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+        const lineMaterial = new THREE.LineBasicMaterial({ 
+          color: 0x00ff88,
+          opacity: 0.2,
+          transparent: true
+        });
+        const line = new THREE.Line(lineGeometry, lineMaterial);
+        this.scene.add(line);
+        this.textMeshes.push(line);
+        
+        // Create animated particles traveling in both directions
+        this.createLineParticle(centerPoint, targetPoint, 0x00ff88, false); // Center to backlink
+        this.createLineParticle(centerPoint, targetPoint, 0x00ff88, true);  // Backlink to center
       }
     });
   }
@@ -246,6 +389,9 @@ export class SceneManager {
    */
   animate() {
     requestAnimationFrame(() => this.animate());
+    
+    // Update animated particles
+    this.updateLineParticles();
     
     this.controls.update();
     this.renderer.render(this.scene, this.camera);

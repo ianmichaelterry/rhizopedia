@@ -53,15 +53,47 @@ export function extractLinks(article) {
 }
 
 /**
- * Fetch article with its linked articles
- * @returns {Promise<Object>} Article with title and linked titles
+ * Fetch articles that link TO a given article (backlinks)
+ * @param {string} title - The article title to find backlinks for
+ * @returns {Promise<Array<string>>} Array of article titles that link to this article
+ */
+export async function fetchBacklinks(title) {
+  const params = new URLSearchParams({
+    action: 'query',
+    format: 'json',
+    list: 'backlinks',
+    bltitle: title,
+    blnamespace: 0, // Only main namespace
+    bllimit: 20, // Limit to 20 backlinks
+    origin: '*'
+  });
+
+  try {
+    const response = await fetch(`${WIKI_API_BASE}?${params}`);
+    const data = await response.json();
+    
+    if (data.query && data.query.backlinks) {
+      return data.query.backlinks.map(link => link.title);
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching backlinks:', error);
+    return [];
+  }
+}
+
+/**
+ * Fetch article with its linked articles and backlinks
+ * @returns {Promise<Object>} Article with title, linked titles, and backlinks
  */
 export async function fetchArticleWithLinks() {
   const article = await fetchRandomArticle();
   const linkedTitles = extractLinks(article);
+  const backlinks = await fetchBacklinks(article.title);
   
   return {
     mainTitle: article.title,
-    linkedTitles: linkedTitles
+    linkedTitles: linkedTitles,
+    backlinks: backlinks
   };
 }
