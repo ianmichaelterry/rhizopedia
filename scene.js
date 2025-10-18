@@ -280,8 +280,10 @@ export class SceneManager {
    * @param {string} mainTitle - Main article title
    * @param {Array<Object>} linkedPositions - Array of {x, y, z, title} for links FROM this article
    * @param {Array<Object>} backlinkPositions - Array of {x, y, z, title} for links TO this article
+   * @param {Array<Object>} secondDegreePositions - Array of {parent, parentPos, children} for second-degree links
+   * @param {Array<Object>} secondDegreeBacklinkPositions - Array of {parent, parentPos, children} for second-degree backlinks
    */
-  renderArticle(mainTitle, linkedPositions, backlinkPositions = []) {
+  renderArticle(mainTitle, linkedPositions, backlinkPositions = [], secondDegreePositions = [], secondDegreeBacklinkPositions = []) {
     this.clearText();
     
     // Create main title (larger, centered in front of the wall)
@@ -372,6 +374,78 @@ export class SceneManager {
         this.createLineParticle(centerPoint, targetPoint, 0x00ff88, false); // Center to backlink
         this.createLineParticle(centerPoint, targetPoint, 0x00ff88, true);  // Backlink to center
       }
+    });
+    
+    // Create second-degree links (smaller, purple/magenta, at various angles)
+    secondDegreePositions.forEach(linkGroup => {
+      linkGroup.children.forEach(childPos => {
+        const secondDegreeText = this.createTextMesh(childPos.title, 0.6, 0xff00ff);
+        if (secondDegreeText) {
+          secondDegreeText.position.set(childPos.x, childPos.y, childPos.z);
+          this.scene.add(secondDegreeText);
+          this.textMeshes.push(secondDegreeText);
+          
+          // Add line connecting to parent (not center)
+          const parentPoint = new THREE.Vector3(
+            linkGroup.parentPos.x, 
+            linkGroup.parentPos.y, 
+            linkGroup.parentPos.z
+          );
+          const childPoint = new THREE.Vector3(childPos.x, childPos.y, childPos.z);
+          const points = [parentPoint, childPoint];
+          
+          const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+          const lineMaterial = new THREE.LineBasicMaterial({ 
+            color: 0xff00ff,
+            opacity: 0.15,
+            transparent: true
+          });
+          const line = new THREE.Line(lineGeometry, lineMaterial);
+          this.scene.add(line);
+          this.textMeshes.push(line);
+          
+          // Create animated particles (fewer for second-degree to avoid clutter)
+          if (Math.random() > 0.5) { // Only 50% chance of particles
+            this.createLineParticle(parentPoint, childPoint, 0xff00ff, false);
+          }
+        }
+      });
+    });
+    
+    // Create second-degree backlinks (smaller, yellow/gold, at various angles behind backlinks)
+    secondDegreeBacklinkPositions.forEach(linkGroup => {
+      linkGroup.children.forEach(childPos => {
+        const secondDegreeBacklinkText = this.createTextMesh(childPos.title, 0.6, 0xffcc00);
+        if (secondDegreeBacklinkText) {
+          secondDegreeBacklinkText.position.set(childPos.x, childPos.y, childPos.z);
+          this.scene.add(secondDegreeBacklinkText);
+          this.textMeshes.push(secondDegreeBacklinkText);
+          
+          // Add line connecting to parent (not center)
+          const parentPoint = new THREE.Vector3(
+            linkGroup.parentPos.x, 
+            linkGroup.parentPos.y, 
+            linkGroup.parentPos.z
+          );
+          const childPoint = new THREE.Vector3(childPos.x, childPos.y, childPos.z);
+          const points = [parentPoint, childPoint];
+          
+          const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+          const lineMaterial = new THREE.LineBasicMaterial({ 
+            color: 0xffcc00,
+            opacity: 0.15,
+            transparent: true
+          });
+          const line = new THREE.Line(lineGeometry, lineMaterial);
+          this.scene.add(line);
+          this.textMeshes.push(line);
+          
+          // Create animated particles (fewer for second-degree to avoid clutter)
+          if (Math.random() > 0.5) { // Only 50% chance of particles
+            this.createLineParticle(parentPoint, childPoint, 0xffcc00, false);
+          }
+        }
+      });
     });
   }
   

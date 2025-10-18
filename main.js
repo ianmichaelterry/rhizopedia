@@ -1,7 +1,7 @@
 import './style.css';
 import { SceneManager } from './scene.js';
-import { fetchArticleWithLinks } from './wikipedia.js';
-import { calculateCircularLayout } from './layout.js';
+import { fetchArticleWithLinks, fetchSecondDegreeLinks, fetchSecondDegreeBacklinks } from './wikipedia.js';
+import { calculateCircularLayout, calculateAngledLayout } from './layout.js';
 
 let sceneManager;
 let loadingElement;
@@ -57,8 +57,82 @@ async function loadNewArticle() {
     // Calculate positions for backlinks (behind, positive z)
     const backlinkPositions = calculateCircularLayout(articleData.backlinks, 12, 30);
     
+    // Fetch second-degree links
+    showLoading('Loading deeper links...');
+    const secondDegreeData = await fetchSecondDegreeLinks(articleData.linkedTitles);
+    
+    // Calculate positions for second-degree links around their parents with collision avoidance
+    const secondDegreePositions = [];
+    const allSecondDegreePositions = []; // Track all positions for collision detection
+    
+    secondDegreeData.forEach((linkGroup, index) => {
+      // Find the parent's position
+      const parentPos = linkedPositions.find(pos => pos.title === linkGroup.parent);
+      if (parentPos) {
+        // Pass existing positions so this cluster avoids previous clusters
+        // Z offset of -15 pushes them further forward (behind the blue links)
+        const childPositions = calculateAngledLayout(
+          parentPos, 
+          linkGroup.children, 
+          index, 
+          8, 
+          allSecondDegreePositions,
+          -15
+        );
+        
+        // Add these positions to the tracking array for next iteration
+        allSecondDegreePositions.push(...childPositions);
+        
+        secondDegreePositions.push({
+          parent: linkGroup.parent,
+          parentPos: parentPos,
+          children: childPositions
+        });
+      }
+    });
+    
+    // Fetch second-degree backlinks
+    showLoading('Loading deeper backlinks...');
+    const secondDegreeBacklinkData = await fetchSecondDegreeBacklinks(articleData.backlinks);
+    
+    // Calculate positions for second-degree backlinks around their parents with collision avoidance
+    const secondDegreeBacklinkPositions = [];
+    const allSecondDegreeBacklinkPositions = []; // Track all positions for collision detection
+    
+    secondDegreeBacklinkData.forEach((linkGroup, index) => {
+      // Find the parent's position
+      const parentPos = backlinkPositions.find(pos => pos.title === linkGroup.parent);
+      if (parentPos) {
+        // Pass existing positions so this cluster avoids previous clusters
+        // Z offset of +15 pushes them further back (behind the green backlinks)
+        const childPositions = calculateAngledLayout(
+          parentPos, 
+          linkGroup.children, 
+          index, 
+          8, 
+          allSecondDegreeBacklinkPositions,
+          15
+        );
+        
+        // Add these positions to the tracking array for next iteration
+        allSecondDegreeBacklinkPositions.push(...childPositions);
+        
+        secondDegreeBacklinkPositions.push({
+          parent: linkGroup.parent,
+          parentPos: parentPos,
+          children: childPositions
+        });
+      }
+    });
+    
     // Render in 3D
-    sceneManager.renderArticle(articleData.mainTitle, linkedPositions, backlinkPositions);
+    sceneManager.renderArticle(
+      articleData.mainTitle, 
+      linkedPositions, 
+      backlinkPositions,
+      secondDegreePositions,
+      secondDegreeBacklinkPositions
+    );
     
     // Hide loading
     hideLoading();
@@ -66,6 +140,8 @@ async function loadNewArticle() {
     console.log('Article loaded:', articleData.mainTitle);
     console.log('Linked articles:', articleData.linkedTitles.length);
     console.log('Backlinks:', articleData.backlinks.length);
+    console.log('Second-degree links:', secondDegreePositions.length);
+    console.log('Second-degree backlinks:', secondDegreeBacklinkPositions.length);
   } catch (error) {
     console.error('Error loading article:', error);
     showLoading('Error loading article. Click button to try again.');

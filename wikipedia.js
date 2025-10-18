@@ -83,6 +83,40 @@ export async function fetchBacklinks(title) {
 }
 
 /**
+ * Fetch links for a specific article by title
+ * @param {string} title - The article title
+ * @returns {Promise<Array<string>>} Array of linked article titles
+ */
+export async function fetchLinksForArticle(title) {
+  const params = new URLSearchParams({
+    action: 'query',
+    format: 'json',
+    titles: title,
+    prop: 'links',
+    pllimit: 10, // Limit to 10 links per second-degree article to avoid explosion
+    plnamespace: 0,
+    origin: '*'
+  });
+
+  try {
+    const response = await fetch(`${WIKI_API_BASE}?${params}`);
+    const data = await response.json();
+    
+    const pages = data.query.pages;
+    const pageId = Object.keys(pages)[0];
+    const page = pages[pageId];
+    
+    if (page.links) {
+      return page.links.map(link => link.title);
+    }
+    return [];
+  } catch (error) {
+    console.error(`Error fetching links for ${title}:`, error);
+    return [];
+  }
+}
+
+/**
  * Fetch article with its linked articles and backlinks
  * @returns {Promise<Object>} Article with title, linked titles, and backlinks
  */
@@ -96,4 +130,52 @@ export async function fetchArticleWithLinks() {
     linkedTitles: linkedTitles,
     backlinks: backlinks
   };
+}
+
+/**
+ * Fetch second-degree links (links from linked articles)
+ * @param {Array<string>} firstDegreeLinks - Array of first-degree link titles
+ * @returns {Promise<Array<Object>>} Array of {parent, children} objects
+ */
+export async function fetchSecondDegreeLinks(firstDegreeLinks) {
+  const secondDegreeData = [];
+  
+  // Limit to first 5 articles to avoid too many API calls
+  const limitedLinks = firstDegreeLinks.slice(0, 5);
+  
+  for (const parentTitle of limitedLinks) {
+    const children = await fetchLinksForArticle(parentTitle);
+    if (children.length > 0) {
+      secondDegreeData.push({
+        parent: parentTitle,
+        children: children
+      });
+    }
+  }
+  
+  return secondDegreeData;
+}
+
+/**
+ * Fetch second-degree backlinks (backlinks to backlinks)
+ * @param {Array<string>} firstDegreeBacklinks - Array of first-degree backlink titles
+ * @returns {Promise<Array<Object>>} Array of {parent, children} objects
+ */
+export async function fetchSecondDegreeBacklinks(firstDegreeBacklinks) {
+  const secondDegreeData = [];
+  
+  // Limit to first 5 articles to avoid too many API calls
+  const limitedBacklinks = firstDegreeBacklinks.slice(0, 5);
+  
+  for (const parentTitle of limitedBacklinks) {
+    const children = await fetchBacklinks(parentTitle);
+    if (children.length > 0) {
+      secondDegreeData.push({
+        parent: parentTitle,
+        children: children.slice(0, 10) // Limit to 10 backlinks per parent
+      });
+    }
+  }
+  
+  return secondDegreeData;
 }
